@@ -337,60 +337,15 @@ input {
 .avg-edit {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
   color: var(--ink-2);
-  background: transparent;
-  border: 1px solid transparent;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.avg-edit:hover,
-.avg-edit:focus-within {
-  background: var(--line-soft);
-  border-color: var(--line);
 }
 
 .avg-edit__label {
   font-weight: 500;
   color: var(--ink-2);
-}
-
-.avg-edit__value {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--ink-1);
-  font-weight: 500;
-}
-
-.avg-edit input {
-  width: 40px;
-  border: none;
-  background: transparent;
-  color: var(--ink-1);
-  font-size: 13px;
-  font-weight: 500;
-  text-align: right;
-  padding: 0;
-  outline: none;
-  border-bottom: 1px dashed var(--ink-4);
-}
-
-.avg-edit input:focus {
-  border-bottom-color: var(--sf-blue);
-}
-
-.avg-edit input::-webkit-outer-spin-button,
-.avg-edit input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.avg-edit input[type="number"] {
-  -moz-appearance: textfield;
+  letter-spacing: 0.02em;
 }
 
 .avg-edit__unit {
@@ -398,21 +353,141 @@ input {
   font-weight: 400;
 }
 
-.avg-edit__pencil {
+/* Stepper: [-] [input] [+] */
+.avg-stepper {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--ink-3);
-  padding: 2px;
-  border-radius: 4px;
-  transition: background 0.15s ease, color 0.15s ease;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.avg-edit__pencil:hover {
-  background: rgba(1, 118, 211, 0.08);
+.avg-stepper:focus-within {
+  border-color: var(--sf-blue);
+  box-shadow: 0 0 0 3px rgba(1, 118, 211, 0.12);
+}
+
+.avg-stepper__btn {
+  width: 26px;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.avg-stepper__btn:hover {
+  background: var(--line-soft);
   color: var(--sf-blue);
+}
+
+.avg-stepper__btn:active {
+  background: rgba(1, 118, 211, 0.12);
+}
+
+.avg-stepper input {
+  width: 34px;
+  border: none;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-1);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 0;
+  outline: none;
+}
+
+.avg-stepper input::-webkit-outer-spin-button,
+.avg-stepper input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.avg-stepper input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Slider + breakdown row */
+.avg-sub {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 4px 0;
+}
+
+.avg-slider {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: linear-gradient(to right, var(--sf-blue) var(--fill, 30%), var(--line) var(--fill, 30%));
+  border-radius: 4px;
+  outline: none;
+  transition: background 0.15s ease;
+}
+
+.avg-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border: 2px solid var(--sf-blue);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: transform 0.12s ease;
+}
+
+.avg-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.avg-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border: 2px solid var(--sf-blue);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.avg-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 11px;
+  color: var(--ink-3);
+  justify-content: flex-end;
+}
+
+.avg-breakdown__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.avg-breakdown__swatch {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.avg-breakdown__num {
+  color: var(--ink-1);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Chart area */
@@ -464,9 +539,37 @@ input {
   font-family: var(--font);
 }
 
+.chart .axis-tick {
+  fill: var(--ink-3);
+  font-size: 10px;
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart .axis-tick-line {
+  stroke: var(--ink-4);
+  stroke-width: 1;
+}
+
 .chart .grid-line {
   stroke: rgba(0, 0, 0, 0.04);
   stroke-width: 1;
+}
+
+.chart .plateau-dot {
+  fill: #fff;
+  stroke-width: 2;
+  transition: cx 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+    cy 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+    r 0.15s ease;
+}
+
+.chart .plateau-dot.is-highlighted {
+  r: 5;
+}
+
+.chart .plateau-dot.is-dimmed {
+  opacity: 0.3;
 }
 
 .chart .avg-marker-line {
@@ -571,6 +674,22 @@ input {
   flex-shrink: 0;
 }
 
+.legend__name {
+  color: var(--ink-1);
+  font-weight: 500;
+}
+
+.legend__plateau {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+.legend__plateau strong {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
 /* Footer */
 .page-footer {
   text-align: center;
@@ -606,5 +725,14 @@ input {
 
   .page {
     padding: 16px 14px 32px;
+  }
+
+  .avg-sub {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .avg-breakdown {
+    justify-content: flex-start;
   }
 }

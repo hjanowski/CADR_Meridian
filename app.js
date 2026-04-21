@@ -42,7 +42,7 @@
   // ----- Chart geometry -----------------------------------------------------
   const VIEW_W = 640;
   const VIEW_H = 360;
-  const MARGIN = { top: 30, right: 56, bottom: 54, left: 62 };
+  const MARGIN = { top: 30, right: 56, bottom: 58, left: 62 };
   const PLOT_W = VIEW_W - MARGIN.left - MARGIN.right;
   const PLOT_H = VIEW_H - MARGIN.top - MARGIN.bottom;
   const PLOT_X0 = MARGIN.left;
@@ -53,6 +53,8 @@
   const X_MAX = 10;     // data-space x max (touchpoints)
   const Y_MAX = 1.15;   // fixed y scale so curves don't jump between modes
   const SAMPLES = 80;   // same count across modes -> SVG d transitions smoothly
+  const X_TICKS = [0, 2, 4, 6, 8, 10];
+  const Y_TICKS = [0, 0.25, 0.5, 0.75, 1.0]; // displayed as index × 100
 
   // ----- State --------------------------------------------------------------
   const state = {
@@ -79,6 +81,21 @@
     const base = neutralY(x, src);
     if (mode === "neutral") return base;
     return base * Math.exp(-decay * x);
+  }
+
+  // Where the curve plateaus. Neutral mode: x at which y reaches 95% of its
+  // asymptote. Aware mode: location of the peak (dy/dx = 0). Both clamped
+  // to the visible x range.
+  function plateauFor(src, mode, decay) {
+    const k = src.k;
+    if (mode === "neutral" || decay <= 0) {
+      const xRaw = Math.log(20) / k;                       // 95% saturation
+      const x = Math.min(X_MAX, xRaw);
+      return { x, y: neutralY(x, src) };
+    }
+    const xRaw = (1 / k) * Math.log((k + decay) / decay);  // peak of a(1-e^-kx)e^-dx
+    const x = Math.min(X_MAX, Math.max(0.001, xRaw));
+    return { x, y: curveY(x, src, mode, decay) };
   }
 
   // ----- Coordinate helpers -------------------------------------------------
@@ -114,48 +131,43 @@
     const panel = PANELS[panelKey];
 
     // --- grid lines (subtle horizontal)
-    for (let i = 1; i <= 4; i++) {
-      const gy = PLOT_Y0 + (i / 5) * PLOT_H;
+    Y_TICKS.forEach((yv) => {
+      if (yv === 0) return;
+      const gy = yToPx(yv);
       svgEl.appendChild(svg("line", {
         class: "grid-line",
         x1: PLOT_X0, x2: PLOT_X1, y1: gy, y2: gy,
       }));
-    }
+    });
 
     // --- axes
-    // X axis
     svgEl.appendChild(svg("line", {
       class: "axis-line",
       x1: PLOT_X0, y1: PLOT_Y1,
       x2: PLOT_X1 + 14, y2: PLOT_Y1,
     }));
-    // X arrow
     svgEl.appendChild(svg("polygon", {
       class: "axis-arrow",
       points: `${PLOT_X1 + 14},${PLOT_Y1} ${PLOT_X1 + 8},${PLOT_Y1 - 4} ${PLOT_X1 + 8},${PLOT_Y1 + 4}`,
     }));
-    // X label (below right end)
     const xLabel = svg("text", {
       class: "axis-label",
       x: PLOT_X1 + 6,
-      y: PLOT_Y1 + 20,
+      y: PLOT_Y1 + 36,
       "text-anchor": "end",
     });
     xLabel.textContent = panel.xLabel;
     svgEl.appendChild(xLabel);
 
-    // Y axis
     svgEl.appendChild(svg("line", {
       class: "axis-line",
       x1: PLOT_X0, y1: PLOT_Y1,
       x2: PLOT_X0, y2: PLOT_Y0 - 14,
     }));
-    // Y arrow
     svgEl.appendChild(svg("polygon", {
       class: "axis-arrow",
       points: `${PLOT_X0},${PLOT_Y0 - 14} ${PLOT_X0 - 4},${PLOT_Y0 - 8} ${PLOT_X0 + 4},${PLOT_Y0 - 8}`,
     }));
-    // Y label (above axis)
     const yLabel = svg("text", {
       class: "axis-label",
       x: PLOT_X0 - 4,
@@ -164,6 +176,40 @@
     });
     yLabel.textContent = panel.yLabel;
     svgEl.appendChild(yLabel);
+
+    // --- X-axis ticks + numeric labels
+    X_TICKS.forEach((xv) => {
+      const px = xToPx(xv);
+      svgEl.appendChild(svg("line", {
+        class: "axis-tick-line",
+        x1: px, x2: px, y1: PLOT_Y1, y2: PLOT_Y1 + 4,
+      }));
+      const t = svg("text", {
+        class: "axis-tick",
+        x: px,
+        y: PLOT_Y1 + 16,
+        "text-anchor": "middle",
+      });
+      t.textContent = xv;
+      svgEl.appendChild(t);
+    });
+
+    // --- Y-axis ticks + numeric labels (scaled 0-100 index)
+    Y_TICKS.forEach((yv) => {
+      const py = yToPx(yv);
+      svgEl.appendChild(svg("line", {
+        class: "axis-tick-line",
+        x1: PLOT_X0 - 4, x2: PLOT_X0, y1: py, y2: py,
+      }));
+      const t = svg("text", {
+        class: "axis-tick",
+        x: PLOT_X0 - 7,
+        y: py + 3,
+        "text-anchor": "end",
+      });
+      t.textContent = Math.round(yv * 100);
+      svgEl.appendChild(t);
+    });
 
     // --- AVG marker (vertical dashed)
     const avgLine = svg("line", { class: "avg-marker-line", "data-avg-line": "" });
@@ -177,27 +223,32 @@
     avgText.textContent = "AVG";
     svgEl.appendChild(avgText);
 
-    // --- curves + hit regions (hit underneath, visible path on top)
+    // --- curves + hit regions
     const hitGroup = svg("g", { "data-hit-group": "" });
     const curveGroup = svg("g", { "data-curve-group": "" });
+    const plateauGroup = svg("g", { "data-plateau-group": "" });
     panel.sources.forEach((src) => {
-      const hit = svg("path", {
+      hitGroup.appendChild(svg("path", {
         class: "hit-region",
         "data-hit": src.id,
-      });
-      hitGroup.appendChild(hit);
-
-      const path = svg("path", {
+      }));
+      curveGroup.appendChild(svg("path", {
         class: "curve",
         "data-curve": src.id,
         stroke: src.color,
-      });
-      curveGroup.appendChild(path);
+      }));
+      plateauGroup.appendChild(svg("circle", {
+        class: "plateau-dot",
+        "data-plateau-dot": src.id,
+        r: 3.5,
+        stroke: src.color,
+      }));
     });
     svgEl.appendChild(hitGroup);
     svgEl.appendChild(curveGroup);
+    svgEl.appendChild(plateauGroup);
 
-    // Build legend
+    // Build legend shell (values filled in render())
     const legend = document.querySelector(`[data-legend="${panelKey}"]`);
     legend.innerHTML = "";
     panel.sources.forEach((src) => {
@@ -206,11 +257,27 @@
       item.dataset.legend = src.id;
       item.innerHTML = `
         <span class="legend__swatch" style="background:${src.color}"></span>
-        <span>${src.name}</span>
+        <span class="legend__name">${src.name}</span>
+        <span class="legend__plateau" data-legend-plateau="${src.id}"></span>
       `;
       item.addEventListener("mouseenter", () => highlightCurve(panelKey, src.id));
       item.addEventListener("mouseleave", () => highlightCurve(panelKey, null));
       legend.appendChild(item);
+    });
+
+    // Build breakdown shell
+    const breakdown = document.querySelector(`[data-avg-breakdown="${panelKey}"]`);
+    breakdown.innerHTML = "";
+    panel.sources.forEach((src) => {
+      const item = document.createElement("span");
+      item.className = "avg-breakdown__item";
+      item.dataset.breakdownItem = src.id;
+      item.innerHTML = `
+        <span class="avg-breakdown__swatch" style="background:${src.color}"></span>
+        <span>${src.name.replace(" Ads", "")}</span>
+        <span class="avg-breakdown__num" data-breakdown-num="${src.id}">0.0</span>
+      `;
+      breakdown.appendChild(item);
     });
   }
 
@@ -220,28 +287,57 @@
       const decay = decayFor(panelKey, state.avgPaid, state.avgOwned);
       const panel = PANELS[panelKey];
       const svgEl = document.querySelector(`[data-chart="${panelKey}"]`);
+      const avg = panelKey === "paid" ? state.avgPaid : state.avgOwned;
 
-      // Paths
+      // Curves
       panel.sources.forEach((src) => {
         const d = samplePath(src, state.mode, decay);
         svgEl.querySelector(`[data-curve="${src.id}"]`).setAttribute("d", d);
         svgEl.querySelector(`[data-hit="${src.id}"]`).setAttribute("d", d);
       });
 
+      // Plateau dots + legend values
+      panel.sources.forEach((src) => {
+        const p = plateauFor(src, state.mode, decay);
+        const dot = svgEl.querySelector(`[data-plateau-dot="${src.id}"]`);
+        dot.setAttribute("cx", xToPx(p.x));
+        dot.setAttribute("cy", yToPx(p.y));
+        const legendVal = document.querySelector(`[data-legend-plateau="${src.id}"]`);
+        if (legendVal) {
+          const peakWord = state.mode === "aware" ? "peak" : "plateau";
+          legendVal.innerHTML = `· ${peakWord} <strong>${(p.y * 100).toFixed(0)}</strong> @ x=${p.x.toFixed(1)}`;
+        }
+      });
+
       // AVG marker
-      const avg = panelKey === "paid" ? state.avgPaid : state.avgOwned;
       const clamped = Math.min(Math.max(avg, 0), X_MAX);
       const px = xToPx(clamped);
-      svgEl.querySelector("[data-avg-line]").setAttribute("x1", px);
-      svgEl.querySelector("[data-avg-line]").setAttribute("x2", px);
-      svgEl.querySelector("[data-avg-line]").setAttribute("y1", PLOT_Y0);
-      svgEl.querySelector("[data-avg-line]").setAttribute("y2", PLOT_Y1);
-      const label = svgEl.querySelector("[data-avg-label]");
-      label.setAttribute("x", px);
-      label.textContent = `AVG ${avg}`;
+      const avgLine = svgEl.querySelector("[data-avg-line]");
+      avgLine.setAttribute("x1", px);
+      avgLine.setAttribute("x2", px);
+      avgLine.setAttribute("y1", PLOT_Y0);
+      avgLine.setAttribute("y2", PLOT_Y1);
+      const avgLabel = svgEl.querySelector("[data-avg-label]");
+      avgLabel.setAttribute("x", px);
+      avgLabel.textContent = `AVG ${avg}`;
+
+      // Sync stepper + slider values
+      const input = document.querySelector(`[data-avg-input="${panelKey}"]`);
+      const slider = document.querySelector(`[data-avg-slider="${panelKey}"]`);
+      if (input && document.activeElement !== input) input.value = avg;
+      if (slider) {
+        slider.value = avg;
+        slider.style.setProperty("--fill", (avg / X_MAX) * 100 + "%");
+      }
+
+      // Source breakdown (allocation of AVG across sources by weight)
+      panel.sources.forEach((src) => {
+        const num = document.querySelector(`[data-breakdown-num="${src.id}"]`);
+        if (num) num.textContent = (src.w * avg).toFixed(1);
+      });
     });
 
-    // Cross-channel callout visibility
+    // Cross-channel callout
     const callout = document.querySelector("[data-cross-callout]");
     const total = document.querySelector("[data-total-touchpoints]");
     if (state.mode === "aware") {
@@ -255,12 +351,18 @@
   // ----- Interactions -------------------------------------------------------
   function highlightCurve(panelKey, sourceId) {
     const svgEl = document.querySelector(`[data-chart="${panelKey}"]`);
-    const curves = svgEl.querySelectorAll(".curve");
-    curves.forEach((c) => {
+    svgEl.querySelectorAll(".curve").forEach((c) => {
       c.classList.remove("is-highlighted", "is-dimmed");
       if (sourceId) {
         if (c.dataset.curve === sourceId) c.classList.add("is-highlighted");
         else c.classList.add("is-dimmed");
+      }
+    });
+    svgEl.querySelectorAll(".plateau-dot").forEach((d) => {
+      d.classList.remove("is-highlighted", "is-dimmed");
+      if (sourceId) {
+        if (d.dataset.plateauDot === sourceId) d.classList.add("is-highlighted");
+        else d.classList.add("is-dimmed");
       }
     });
   }
@@ -284,14 +386,15 @@
       const yNeutral = neutralY(dataX, src);
       const pct = (yAware * 100).toFixed(1);
 
-      const unit = panelKey === "paid" ? "conv/$" : "opens";
+      const xUnit = panelKey === "paid" ? "spend units" : "sends";
+      const yUnit = panelKey === "paid" ? "conv. index" : "opens index";
       let html = `
         <div class="tooltip__title">
           <span class="tooltip__dot" style="background:${src.color}"></span>
           ${src.name}
         </div>
         <div class="tooltip__value">
-          At ${dataX.toFixed(1)} ${panelKey === "paid" ? "spend" : "sends"}: <strong>${pct}</strong> index (${unit})
+          x = ${dataX.toFixed(1)} ${xUnit} &nbsp;·&nbsp; y = <strong>${pct}</strong> ${yUnit}
         </div>`;
 
       if (state.mode === "aware") {
@@ -343,30 +446,37 @@
       });
     });
 
-    // AVG inputs
+    // Shared setter
+    const setAvg = (panelKey, raw) => {
+      let v = Math.round(parseFloat(raw));
+      if (!Number.isFinite(v) || v < 0) v = 0;
+      if (v > X_MAX) v = X_MAX;
+      if (panelKey === "paid") state.avgPaid = v;
+      else state.avgOwned = v;
+      render();
+    };
+
+    // Number inputs
     ["paid", "owned"].forEach((panelKey) => {
       const input = document.querySelector(`[data-avg-input="${panelKey}"]`);
-      const apply = () => {
-        let v = parseFloat(input.value);
-        if (!Number.isFinite(v) || v < 0) v = 0;
-        if (v > X_MAX) v = X_MAX;
-        input.value = v;
-        if (panelKey === "paid") state.avgPaid = v;
-        else state.avgOwned = v;
-        render();
-      };
-      input.addEventListener("input", apply);
-      input.addEventListener("change", apply);
+      input.addEventListener("input", () => setAvg(panelKey, input.value));
+      input.addEventListener("change", () => setAvg(panelKey, input.value));
     });
 
-    // Pencil icons focus the input
-    document.querySelectorAll(".avg-edit__pencil").forEach((btn) => {
+    // Stepper buttons
+    document.querySelectorAll(".avg-stepper__btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const control = btn.closest("[data-avg-control]");
-        const input = control.querySelector("input");
-        input.focus();
-        input.select();
+        const panelKey = btn.dataset.step;
+        const delta = parseInt(btn.dataset.delta, 10);
+        const current = panelKey === "paid" ? state.avgPaid : state.avgOwned;
+        setAvg(panelKey, current + delta);
       });
+    });
+
+    // Range sliders
+    ["paid", "owned"].forEach((panelKey) => {
+      const slider = document.querySelector(`[data-avg-slider="${panelKey}"]`);
+      slider.addEventListener("input", () => setAvg(panelKey, slider.value));
     });
   }
 

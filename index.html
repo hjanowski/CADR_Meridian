@@ -78,23 +78,36 @@
         <header class="panel__header">
           <h2 class="panel__title">Paid</h2>
           <div class="avg-edit" data-avg-control="paid">
-            <span class="avg-edit__label">AVG:</span>
-            <span class="avg-edit__value">
+            <span class="avg-edit__label">AVG</span>
+            <div class="avg-stepper">
+              <button class="avg-stepper__btn" data-step="paid" data-delta="-1" aria-label="Decrease average impressions">−</button>
               <input
                 type="number"
                 min="0"
+                max="10"
                 step="1"
                 value="3"
                 data-avg-input="paid"
                 aria-label="Average impressions per individual"
               />
-              <span class="avg-edit__unit">imp/indvdl</span>
-            </span>
-            <button class="avg-edit__pencil" aria-label="Edit average impressions per individual">
-              <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-            </button>
+              <button class="avg-stepper__btn" data-step="paid" data-delta="1" aria-label="Increase average impressions">+</button>
+            </div>
+            <span class="avg-edit__unit">imp/indvdl</span>
           </div>
         </header>
+        <div class="avg-sub">
+          <input
+            type="range"
+            min="0"
+            max="10"
+            step="1"
+            value="3"
+            class="avg-slider"
+            data-avg-slider="paid"
+            aria-label="Average impressions per individual slider"
+          />
+          <div class="avg-breakdown" data-avg-breakdown="paid" aria-label="Impressions allocated by source"></div>
+        </div>
         <div class="panel__chart">
           <svg class="chart" data-chart="paid" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Paid diminishing returns chart"></svg>
           <div class="tooltip" data-tooltip="paid" hidden></div>
@@ -107,23 +120,36 @@
         <header class="panel__header">
           <h2 class="panel__title">Owned</h2>
           <div class="avg-edit" data-avg-control="owned">
-            <span class="avg-edit__label">AVG:</span>
-            <span class="avg-edit__value">
+            <span class="avg-edit__label">AVG</span>
+            <div class="avg-stepper">
+              <button class="avg-stepper__btn" data-step="owned" data-delta="-1" aria-label="Decrease average sends">−</button>
               <input
                 type="number"
                 min="0"
+                max="10"
                 step="1"
                 value="3"
                 data-avg-input="owned"
                 aria-label="Average sends per individual"
               />
-              <span class="avg-edit__unit">sends/indvdl</span>
-            </span>
-            <button class="avg-edit__pencil" aria-label="Edit average sends per individual">
-              <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-            </button>
+              <button class="avg-stepper__btn" data-step="owned" data-delta="1" aria-label="Increase average sends">+</button>
+            </div>
+            <span class="avg-edit__unit">sends/indvdl</span>
           </div>
         </header>
+        <div class="avg-sub">
+          <input
+            type="range"
+            min="0"
+            max="10"
+            step="1"
+            value="3"
+            class="avg-slider"
+            data-avg-slider="owned"
+            aria-label="Average sends per individual slider"
+          />
+          <div class="avg-breakdown" data-avg-breakdown="owned" aria-label="Sends allocated by source"></div>
+        </div>
         <div class="panel__chart">
           <svg class="chart" data-chart="owned" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Owned diminishing returns chart"></svg>
           <div class="tooltip" data-tooltip="owned" hidden></div>
