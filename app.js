@@ -57,8 +57,14 @@
   const Y_TICKS = [0, 0.25, 0.5, 0.75, 1.0]; // displayed as index × 100
 
   // ----- State --------------------------------------------------------------
+  // `mode` controls cross-media pressure (global Neutral | Channel-Aware).
+  // `internalPaid` / `internalOwned` control within-media pressure, per panel.
+  // The two are independent: within-media and cross-media effects can each
+  // be toggled on/off separately.
   const state = {
     mode: "neutral",
+    internalPaid: "neutral",
+    internalOwned: "neutral",
     avgPaid: 3,
     avgOwned: 3,
   };
@@ -68,34 +74,40 @@
     return src.a * (1 - Math.exp(-src.k * x));
   }
 
-  // Decay factor driving the aware-mode roll-off. Own-media dominates, cross
-  // media adds a secondary penalty.
-  function decayFor(panel, avgPaid, avgOwned) {
+  // Returns a per-panel decay coefficient built from two optional parts:
+  //   within: applied when this panel's Internal toggle is "aware"
+  //   cross:  applied when the global Perspective is "aware"
+  function decayFor(panel, s) {
     const WITHIN = 0.022;
     const CROSS = 0.010;
-    if (panel === "paid") return WITHIN * avgPaid + CROSS * avgOwned;
-    return WITHIN * avgOwned + CROSS * avgPaid;
+    const ownAvg = panel === "paid" ? s.avgPaid : s.avgOwned;
+    const otherAvg = panel === "paid" ? s.avgOwned : s.avgPaid;
+    const internal = panel === "paid" ? s.internalPaid : s.internalOwned;
+    const within = internal === "aware" ? WITHIN * ownAvg : 0;
+    const cross = s.mode === "aware" ? CROSS * otherAvg : 0;
+    return within + cross;
   }
 
-  function curveY(x, src, mode, decay) {
+  // When decay > 0 the curve a(1-e^-kx)·e^-dx has a peak; otherwise it is a
+  // monotonic saturation.
+  function curveY(x, src, decay) {
     const base = neutralY(x, src);
-    if (mode === "neutral") return base;
-    return base * Math.exp(-decay * x);
+    return decay > 0 ? base * Math.exp(-decay * x) : base;
   }
 
-  // Where the curve plateaus. Neutral mode: x at which y reaches 95% of its
-  // asymptote. Aware mode: location of the peak (dy/dx = 0). Both clamped
-  // to the visible x range.
-  function plateauFor(src, mode, decay) {
+  // Where the curve plateaus. decay == 0: x at which y reaches 95% of the
+  // asymptote. decay > 0: location of the peak (dy/dx = 0). Clamped to
+  // the visible x range.
+  function plateauFor(src, decay) {
     const k = src.k;
-    if (mode === "neutral" || decay <= 0) {
+    if (decay <= 0) {
       const xRaw = Math.log(20) / k;                       // 95% saturation
       const x = Math.min(X_MAX, xRaw);
       return { x, y: neutralY(x, src) };
     }
     const xRaw = (1 / k) * Math.log((k + decay) / decay);  // peak of a(1-e^-kx)e^-dx
     const x = Math.min(X_MAX, Math.max(0.001, xRaw));
-    return { x, y: curveY(x, src, mode, decay) };
+    return { x, y: curveY(x, src, decay) };
   }
 
   // ----- Coordinate helpers -------------------------------------------------
@@ -103,11 +115,11 @@
   const yToPx = (y) => PLOT_Y1 - (Math.max(0, y) / Y_MAX) * PLOT_H;
   const pxToX = (px) => ((px - PLOT_X0) / PLOT_W) * X_MAX;
 
-  function samplePath(src, mode, decay) {
+  function samplePath(src, decay) {
     let d = "";
     for (let i = 0; i <= SAMPLES; i++) {
       const x = (i / SAMPLES) * X_MAX;
-      const y = curveY(x, src, mode, decay);
+      const y = curveY(x, src, decay);
       const px = xToPx(x).toFixed(2);
       const py = yToPx(y).toFixed(2);
       d += (i === 0 ? "M" : "L") + px + " " + py + " ";
@@ -243,6 +255,12 @@
         r: 3.5,
         stroke: src.color,
       }));
+      const label = svg("text", {
+        class: "plateau-label",
+        "data-plateau-label": src.id,
+        fill: src.color,
+      });
+      plateauGroup.appendChild(label);
     });
     svgEl.appendChild(hitGroup);
     svgEl.appendChild(curveGroup);
@@ -270,28 +288,64 @@
   // ----- Render (state -> DOM) ---------------------------------------------
   function render() {
     ["paid", "owned"].forEach((panelKey) => {
-      const decay = decayFor(panelKey, state.avgPaid, state.avgOwned);
+      const decay = decayFor(panelKey, state);
       const panel = PANELS[panelKey];
       const svgEl = document.querySelector(`[data-chart="${panelKey}"]`);
       const avg = panelKey === "paid" ? state.avgPaid : state.avgOwned;
 
       // Curves
       panel.sources.forEach((src) => {
-        const d = samplePath(src, state.mode, decay);
+        const d = samplePath(src, decay);
         svgEl.querySelector(`[data-curve="${src.id}"]`).setAttribute("d", d);
         svgEl.querySelector(`[data-hit="${src.id}"]`).setAttribute("d", d);
       });
 
-      // Plateau dots + legend values
-      panel.sources.forEach((src) => {
-        const p = plateauFor(src, state.mode, decay);
+      // Plateau dots, labels, and legend values
+      const plateaus = panel.sources.map((src) => ({
+        src,
+        point: plateauFor(src, decay),
+      }));
+
+      // Lay labels out top-to-bottom in pixel space, nudging any that would
+      // overlap so every number stays readable.
+      const layout = plateaus
+        .map(({ src, point }) => {
+          const px = xToPx(point.x);
+          const py = yToPx(point.y);
+          const flip = px > PLOT_X1 - 74;
+          return {
+            src,
+            point,
+            px,
+            py,
+            labelX: flip ? px - 7 : px + 7,
+            labelY: py - 6,
+            anchor: flip ? "end" : "start",
+          };
+        })
+        .sort((a, b) => a.labelY - b.labelY);
+
+      const LABEL_MIN_GAP = 13;
+      for (let i = 1; i < layout.length; i++) {
+        const needed = layout[i - 1].labelY + LABEL_MIN_GAP;
+        if (layout[i].labelY < needed) layout[i].labelY = needed;
+      }
+
+      layout.forEach(({ src, point, px, py, labelX, labelY, anchor }) => {
         const dot = svgEl.querySelector(`[data-plateau-dot="${src.id}"]`);
-        dot.setAttribute("cx", xToPx(p.x));
-        dot.setAttribute("cy", yToPx(p.y));
+        dot.setAttribute("cx", px);
+        dot.setAttribute("cy", py);
+
+        const label = svgEl.querySelector(`[data-plateau-label="${src.id}"]`);
+        label.setAttribute("x", labelX);
+        label.setAttribute("y", Math.max(PLOT_Y0 + 10, Math.min(PLOT_Y1 - 2, labelY)));
+        label.setAttribute("text-anchor", anchor);
+        label.textContent = `(${point.x.toFixed(1)}, ${Math.round(point.y * 100)})`;
+
         const legendVal = document.querySelector(`[data-legend-plateau="${src.id}"]`);
         if (legendVal) {
-          const peakWord = state.mode === "aware" ? "peak" : "plateau";
-          legendVal.innerHTML = `· ${peakWord} <strong>${(p.y * 100).toFixed(0)}</strong> @ x=${p.x.toFixed(1)}`;
+          const word = decay > 0 ? "peak" : "plateau";
+          legendVal.innerHTML = `· ${word} <strong>${Math.round(point.y * 100)}</strong> @ x=${point.x.toFixed(1)}`;
         }
       });
 
@@ -353,6 +407,12 @@
         else d.classList.add("is-dimmed");
       }
     });
+    svgEl.querySelectorAll(".plateau-label").forEach((l) => {
+      l.classList.remove("is-dimmed");
+      if (sourceId && l.dataset.plateauLabel !== sourceId) {
+        l.classList.add("is-dimmed");
+      }
+    });
   }
 
   function attachTooltip(panelKey) {
@@ -369,8 +429,8 @@
       const svgX = ((evt.clientX - rect.left) / rect.width) * VIEW_W;
       const dataX = Math.max(0.05, Math.min(X_MAX, pxToX(svgX)));
 
-      const decay = decayFor(panelKey, state.avgPaid, state.avgOwned);
-      const yAware = curveY(dataX, src, state.mode, decay);
+      const decay = decayFor(panelKey, state);
+      const yAware = curveY(dataX, src, decay);
       const yNeutral = neutralY(dataX, src);
       const pct = (yAware * 100).toFixed(1);
 
@@ -385,10 +445,10 @@
           x = ${dataX.toFixed(1)} ${xUnit} &nbsp;·&nbsp; y = <strong>${pct}</strong> ${yUnit}
         </div>`;
 
-      if (state.mode === "aware") {
+      if (decay > 0) {
         const delta = ((yAware - yNeutral) / Math.max(yNeutral, 1e-6)) * 100;
         const sign = delta < 0 ? "" : "+";
-        html += `<div class="tooltip__delta">${sign}${delta.toFixed(1)}% vs. Neutral (cross-channel)</div>`;
+        html += `<div class="tooltip__delta">${sign}${delta.toFixed(1)}% vs. pure Neutral</div>`;
       }
 
       tooltipEl.innerHTML = html;
@@ -419,17 +479,39 @@
   }
 
   function attachControls() {
-    // Perspective toggle
-    const options = document.querySelectorAll(".segmented__option");
-    options.forEach((opt) => {
+    // Global Perspective toggle (Neutral | Channel-Aware)
+    const globalOptions = document.querySelectorAll(
+      ".segmented:not(.segmented--sm) .segmented__option"
+    );
+    globalOptions.forEach((opt) => {
       opt.addEventListener("click", () => {
         if (state.mode === opt.dataset.mode) return;
         state.mode = opt.dataset.mode;
-        options.forEach((o) => {
+        globalOptions.forEach((o) => {
           const isActive = o === opt;
           o.classList.toggle("is-active", isActive);
           o.setAttribute("aria-selected", isActive ? "true" : "false");
         });
+        render();
+      });
+    });
+
+    // Per-panel Internal toggle (Neutral | Aware)
+    document.querySelectorAll("[data-internal]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const panelKey = btn.dataset.internal;      // "paid" | "owned"
+        const nextMode = btn.dataset.internalMode;  // "neutral" | "aware"
+        const stateKey = panelKey === "paid" ? "internalPaid" : "internalOwned";
+        if (state[stateKey] === nextMode) return;
+        state[stateKey] = nextMode;
+
+        document
+          .querySelectorAll(`[data-internal="${panelKey}"]`)
+          .forEach((other) => {
+            const isActive = other.dataset.internalMode === nextMode;
+            other.classList.toggle("is-active", isActive);
+            other.setAttribute("aria-selected", isActive ? "true" : "false");
+          });
         render();
       });
     });

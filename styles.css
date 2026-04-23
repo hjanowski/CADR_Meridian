@@ -260,6 +260,35 @@ input {
   box-shadow: 0 1px 2px rgba(1, 118, 211, 0.25);
 }
 
+/* Smaller segmented control (for per-panel internal toggle) */
+.segmented--sm {
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.segmented--sm .segmented__option {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  min-width: 64px;
+  border-radius: 4px;
+}
+
+.internal-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.internal-toggle__label {
+  font-size: 11px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+
 .cross-callout {
   display: inline-flex;
   align-items: center;
@@ -565,6 +594,25 @@ input {
 
 .chart .plateau-dot.is-dimmed {
   opacity: 0.3;
+}
+
+.chart .plateau-label {
+  font-size: 10.5px;
+  font-family: var(--font);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: #f4f5f7;
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+  transition: x 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+    y 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.15s ease;
+}
+
+.chart .plateau-label.is-dimmed {
+  opacity: 0.25;
 }
 
 .chart .avg-marker-line {
