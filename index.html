@@ -76,38 +76,31 @@
       <!-- Paid panel -->
       <article class="panel" data-panel="paid">
         <header class="panel__header">
-          <h2 class="panel__title">Paid</h2>
-          <div class="avg-edit" data-avg-control="paid">
-            <span class="avg-edit__label">AVG</span>
-            <div class="avg-stepper">
-              <button class="avg-stepper__btn" data-step="paid" data-delta="-1" aria-label="Decrease average impressions">−</button>
-              <input
-                type="number"
-                min="0"
-                max="10"
-                step="1"
-                value="3"
-                data-avg-input="paid"
-                aria-label="Average impressions per individual"
-              />
-              <button class="avg-stepper__btn" data-step="paid" data-delta="1" aria-label="Increase average impressions">+</button>
+          <div class="panel__header-left">
+            <h2 class="panel__title">Paid</h2>
+            <input
+              type="range"
+              min="0"
+              max="20"
+              step="1"
+              value="3"
+              class="avg-slider"
+              data-avg-slider="paid"
+              aria-label="Average impressions per individual"
+            />
+          </div>
+          <div class="panel__header-right">
+            <div class="avg-display">
+              <span class="avg-display__label">AVG:</span>
+              <span class="avg-display__value" data-avg-value="paid">3</span>
+              <span class="avg-display__unit">imp/indvdl</span>
             </div>
-            <span class="avg-edit__unit">imp/indvdl</span>
+            <div class="avg-buttons" role="group" aria-label="Adjust average impressions">
+              <button type="button" class="avg-btn" data-avg-delta="paid" data-delta="-1" aria-label="Decrease">−</button>
+              <button type="button" class="avg-btn" data-avg-delta="paid" data-delta="1" aria-label="Increase">+</button>
+            </div>
           </div>
         </header>
-        <div class="avg-sub">
-          <input
-            type="range"
-            min="0"
-            max="10"
-            step="1"
-            value="3"
-            class="avg-slider"
-            data-avg-slider="paid"
-            aria-label="Average impressions per individual slider"
-          />
-          <div class="avg-breakdown" data-avg-breakdown="paid" aria-label="Impressions allocated by source"></div>
-        </div>
         <div class="panel__chart">
           <svg class="chart" data-chart="paid" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Paid diminishing returns chart"></svg>
           <div class="tooltip" data-tooltip="paid" hidden></div>
@@ -118,38 +111,31 @@
       <!-- Owned panel -->
       <article class="panel" data-panel="owned">
         <header class="panel__header">
-          <h2 class="panel__title">Owned</h2>
-          <div class="avg-edit" data-avg-control="owned">
-            <span class="avg-edit__label">AVG</span>
-            <div class="avg-stepper">
-              <button class="avg-stepper__btn" data-step="owned" data-delta="-1" aria-label="Decrease average sends">−</button>
-              <input
-                type="number"
-                min="0"
-                max="10"
-                step="1"
-                value="3"
-                data-avg-input="owned"
-                aria-label="Average sends per individual"
-              />
-              <button class="avg-stepper__btn" data-step="owned" data-delta="1" aria-label="Increase average sends">+</button>
+          <div class="panel__header-left">
+            <h2 class="panel__title">Owned</h2>
+            <input
+              type="range"
+              min="0"
+              max="20"
+              step="1"
+              value="3"
+              class="avg-slider"
+              data-avg-slider="owned"
+              aria-label="Average sends per individual"
+            />
+          </div>
+          <div class="panel__header-right">
+            <div class="avg-display">
+              <span class="avg-display__label">AVG:</span>
+              <span class="avg-display__value" data-avg-value="owned">3</span>
+              <span class="avg-display__unit">sends/indvdl</span>
             </div>
-            <span class="avg-edit__unit">sends/indvdl</span>
+            <div class="avg-buttons" role="group" aria-label="Adjust average sends">
+              <button type="button" class="avg-btn" data-avg-delta="owned" data-delta="-1" aria-label="Decrease">−</button>
+              <button type="button" class="avg-btn" data-avg-delta="owned" data-delta="1" aria-label="Increase">+</button>
+            </div>
           </div>
         </header>
-        <div class="avg-sub">
-          <input
-            type="range"
-            min="0"
-            max="10"
-            step="1"
-            value="3"
-            class="avg-slider"
-            data-avg-slider="owned"
-            aria-label="Average sends per individual slider"
-          />
-          <div class="avg-breakdown" data-avg-breakdown="owned" aria-label="Sends allocated by source"></div>
-        </div>
         <div class="panel__chart">
           <svg class="chart" data-chart="owned" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Owned diminishing returns chart"></svg>
           <div class="tooltip" data-tooltip="owned" hidden></div>

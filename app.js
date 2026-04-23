@@ -50,10 +50,10 @@
   const PLOT_Y0 = MARGIN.top;
   const PLOT_Y1 = MARGIN.top + PLOT_H;
 
-  const X_MAX = 10;     // data-space x max (touchpoints)
+  const X_MAX = 20;     // data-space x max (touchpoints)
   const Y_MAX = 1.15;   // fixed y scale so curves don't jump between modes
   const SAMPLES = 80;   // same count across modes -> SVG d transitions smoothly
-  const X_TICKS = [0, 2, 4, 6, 8, 10];
+  const X_TICKS = [0, 4, 8, 12, 16, 20];
   const Y_TICKS = [0, 0.25, 0.5, 0.75, 1.0]; // displayed as index × 100
 
   // ----- State --------------------------------------------------------------
@@ -71,8 +71,8 @@
   // Decay factor driving the aware-mode roll-off. Own-media dominates, cross
   // media adds a secondary penalty.
   function decayFor(panel, avgPaid, avgOwned) {
-    const WITHIN = 0.032;
-    const CROSS = 0.014;
+    const WITHIN = 0.022;
+    const CROSS = 0.010;
     if (panel === "paid") return WITHIN * avgPaid + CROSS * avgOwned;
     return WITHIN * avgOwned + CROSS * avgPaid;
   }
@@ -265,20 +265,6 @@
       legend.appendChild(item);
     });
 
-    // Build breakdown shell
-    const breakdown = document.querySelector(`[data-avg-breakdown="${panelKey}"]`);
-    breakdown.innerHTML = "";
-    panel.sources.forEach((src) => {
-      const item = document.createElement("span");
-      item.className = "avg-breakdown__item";
-      item.dataset.breakdownItem = src.id;
-      item.innerHTML = `
-        <span class="avg-breakdown__swatch" style="background:${src.color}"></span>
-        <span>${src.name.replace(" Ads", "")}</span>
-        <span class="avg-breakdown__num" data-breakdown-num="${src.id}">0.0</span>
-      `;
-      breakdown.appendChild(item);
-    });
   }
 
   // ----- Render (state -> DOM) ---------------------------------------------
@@ -321,20 +307,22 @@
       avgLabel.setAttribute("x", px);
       avgLabel.textContent = `AVG ${avg}`;
 
-      // Sync stepper + slider values
-      const input = document.querySelector(`[data-avg-input="${panelKey}"]`);
+      // Sync slider + numeric readout + button disabled states
       const slider = document.querySelector(`[data-avg-slider="${panelKey}"]`);
-      if (input && document.activeElement !== input) input.value = avg;
       if (slider) {
-        slider.value = avg;
+        if (document.activeElement !== slider) slider.value = avg;
         slider.style.setProperty("--fill", (avg / X_MAX) * 100 + "%");
       }
+      const valueEl = document.querySelector(`[data-avg-value="${panelKey}"]`);
+      if (valueEl) valueEl.textContent = avg;
 
-      // Source breakdown (allocation of AVG across sources by weight)
-      panel.sources.forEach((src) => {
-        const num = document.querySelector(`[data-breakdown-num="${src.id}"]`);
-        if (num) num.textContent = (src.w * avg).toFixed(1);
-      });
+      document
+        .querySelectorAll(`[data-avg-delta="${panelKey}"]`)
+        .forEach((btn) => {
+          const d = parseInt(btn.dataset.delta, 10);
+          btn.disabled =
+            (d < 0 && avg <= 0) || (d > 0 && avg >= X_MAX);
+        });
     });
 
     // Cross-channel callout
@@ -446,37 +434,36 @@
       });
     });
 
-    // Shared setter
+    // AVG setter shared by slider + buttons
     const setAvg = (panelKey, raw) => {
-      let v = Math.round(parseFloat(raw));
+      let v = Math.round(Number(raw));
       if (!Number.isFinite(v) || v < 0) v = 0;
       if (v > X_MAX) v = X_MAX;
-      if (panelKey === "paid") state.avgPaid = v;
-      else state.avgOwned = v;
+      if (panelKey === "paid") {
+        if (state.avgPaid === v) return;
+        state.avgPaid = v;
+      } else {
+        if (state.avgOwned === v) return;
+        state.avgOwned = v;
+      }
       render();
     };
 
-    // Number inputs
-    ["paid", "owned"].forEach((panelKey) => {
-      const input = document.querySelector(`[data-avg-input="${panelKey}"]`);
-      input.addEventListener("input", () => setAvg(panelKey, input.value));
-      input.addEventListener("change", () => setAvg(panelKey, input.value));
+    // Range sliders
+    document.querySelectorAll("[data-avg-slider]").forEach((slider) => {
+      const panelKey = slider.dataset.avgSlider;
+      slider.addEventListener("input", () => setAvg(panelKey, slider.value));
+      slider.addEventListener("change", () => setAvg(panelKey, slider.value));
     });
 
-    // Stepper buttons
-    document.querySelectorAll(".avg-stepper__btn").forEach((btn) => {
+    // +/- buttons
+    document.querySelectorAll("[data-avg-delta]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const panelKey = btn.dataset.step;
+        const panelKey = btn.dataset.avgDelta;
         const delta = parseInt(btn.dataset.delta, 10);
         const current = panelKey === "paid" ? state.avgPaid : state.avgOwned;
         setAvg(panelKey, current + delta);
       });
-    });
-
-    // Range sliders
-    ["paid", "owned"].forEach((panelKey) => {
-      const slider = document.querySelector(`[data-avg-slider="${panelKey}"]`);
-      slider.addEventListener("input", () => setAvg(panelKey, slider.value));
     });
   }
 
