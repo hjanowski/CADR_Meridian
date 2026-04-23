@@ -340,7 +340,7 @@
         label.setAttribute("x", labelX);
         label.setAttribute("y", Math.max(PLOT_Y0 + 10, Math.min(PLOT_Y1 - 2, labelY)));
         label.setAttribute("text-anchor", anchor);
-        label.textContent = `(${point.x.toFixed(1)}, ${Math.round(point.y * 100)})`;
+        label.textContent = Math.round(point.y * 100);
 
         const legendVal = document.querySelector(`[data-legend-plateau="${src.id}"]`);
         if (legendVal) {
